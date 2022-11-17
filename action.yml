@@ -1,0 +1,97 @@
+name: 'Generate Envs'
+description: 'Generate Envs from package.json'
+
+inputs:
+  app:
+    required: true
+    description: "App Name"
+  src:
+    required: true
+    description: "Source path"
+    default: "src"
+  nuget-api-url:
+    description: "NuGet URL"
+  nuget-api-key:
+    description: 'NuGet API key'
+  image-prefix:
+    description: "full image name, ex: [image-prefix]/[image]"
+  branch-production:
+    description: "Production Branch"
+    default: "main"
+outputs:
+  app:
+    description: "App Name"
+    value: ${{ steps.envs.outputs.app }}
+  version:
+    description: "App Version from AssemblyInfo"
+    value: ${{ steps.envs.outputs.version }}
+  image:
+    description: "Image Name"
+    value: ${{ steps.envs.outputs.image }}
+  image-fullName:
+    description: "Image Full Name"
+    value: ${{ steps.envs.outputs.image-fullName }}
+  tag:
+    description: "Image Tag"
+    value: ${{ steps.envs.outputs.tag }}
+  tag-hash:
+    description: "Image Tag with hash"
+    value: ${{ steps.envs.outputs.tag-hash }}
+  tag-latest:
+    description: "Image Tag with latest"
+    value: ${{ steps.envs.outputs.tag-latest }}
+  build-options:
+    description: "Image build options"
+    value: ${{ steps.envs.outputs.build-options }}
+  branch:
+    description: "Branch name"
+    value: ${{ steps.envs.outputs.branch }}
+  actor:
+    description: "Actor"
+    value: ${{ steps.envs.outputs.actor }}
+  email:
+    description: "Email"
+    value: ${{ steps.envs.outputs.email }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Set Environments
+      id: envs
+      shell: bash
+      run: |
+        APP="${{ inputs.app }}"
+        BRANCH=`echo "${GITHUB_REF_NAME,,}" | sed 's/\//-/g'`
+        IMAGE=`echo "${APP,,}" | sed 's/\./-/g'`
+        IMAGE_FULL_NAME=$IMAGE
+
+        if [ ! -z "${{ inputs.image-prefix }}" ]; then
+          IMAGE_FULL_NAME="${{ inputs.image-prefix }}/${IMAGE}"
+        fi
+
+        COMMIT_SHORT_SHA=`git rev-parse --short ${GITHUB_SHA}`
+        COMMIT_COUNT=`git rev-list --count HEAD`
+        COMMIT_TIME=`git show -s --format=%ct HEAD`
+        TAG_LATEST="${BRANCH}-latest"
+        USERNAME=`git log -n 1 --pretty=format:%an`
+        EMAIL=`git log -n 1 --pretty=format:%ae`
+
+        VERSION=`jq -r .version package.json`
+
+        TAG="${VERSION}-${BRANCH}.${COMMIT_TIME}"
+
+        if [ "$GITHUB_REF_NAME" = "main" ]; then
+          TAG="${VERSION}.${COMMIT_TIME}"
+          TAG_LATEST="latest"
+        fi
+
+        echo "app=$APP" >> $GITHUB_OUTPUT
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "image=$IMAGE" >> $GITHUB_OUTPUT
+        echo "image-fullName=$IMAGE_FULL_NAME" >> $GITHUB_OUTPUT
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "tag-hash=$COMMIT_SHORT_SHA" >> $GITHUB_OUTPUT
+        echo "tag-latest=$TAG_LATEST" >> $GITHUB_OUTPUT
+        echo "branch=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
+        echo "actor=$USERNAME" >> $GITHUB_OUTPUT
+        echo "email=$EMAIL" >> $GITHUB_OUTPUT
