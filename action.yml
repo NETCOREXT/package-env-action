@@ -56,6 +56,12 @@ outputs:
 runs:
   using: "composite"
   steps:
+    - uses: actions/setup-node@v3
+      with:
+        node-version: 18
+    - name: Install packages
+      shell: bash
+      run: npm i -g semver
     - name: Set Environments
       id: envs
       shell: bash
@@ -77,8 +83,13 @@ runs:
         EMAIL=`git log -n 1 --pretty=format:%ae`
 
         VERSION=`jq -r .version package.json`
+        CORE_VERSION=`semver -c $VERSION`
 
         TAG="${VERSION}-${BRANCH}.${COMMIT_TIME}"
+
+        if [ "$VERSION" != "$CORE_VERSION" ]; then
+          TAG="${VERSION}.${COMMIT_TIME}"
+        fi
 
         if [ "$GITHUB_REF_NAME" = "main" ]; then
           TAG="${VERSION}.${COMMIT_TIME}"
