@@ -5,14 +5,6 @@ inputs:
   app:
     required: true
     description: "App Name"
-  src:
-    required: true
-    description: "Source path"
-    default: "src"
-  nuget-api-url:
-    description: "NuGet URL"
-  nuget-api-key:
-    description: 'NuGet API key'
   image-prefix:
     description: "full image name, ex: [image-prefix]/[image]"
   branch-production:
@@ -23,7 +15,7 @@ outputs:
     description: "App Name"
     value: ${{ steps.envs.outputs.app }}
   version:
-    description: "App Version from AssemblyInfo"
+    description: "App Version"
     value: ${{ steps.envs.outputs.version }}
   image:
     description: "Image Name"
@@ -58,51 +50,21 @@ runs:
   steps:
     - uses: actions/setup-node@v3
       with:
-        node-version: 18
+        node-version: lts/*
     - name: Install packages
       shell: bash
       run: npm i -g semver
-    - name: Set Environments
-      id: envs
+    - name: Get App Version
+      id: pkg
       shell: bash
       run: |
-        APP="${{ inputs.app }}"
-        BRANCH=`echo "${GITHUB_REF_NAME,,}" | sed 's/\//-/g'`
-        IMAGE=`echo "${APP,,}" | sed 's/\./-/g'`
-        IMAGE_FULL_NAME=$IMAGE
-
-        if [ ! -z "${{ inputs.image-prefix }}" ]; then
-          IMAGE_FULL_NAME="${{ inputs.image-prefix }}/${IMAGE}"
-        fi
-
-        COMMIT_SHORT_SHA=`git rev-parse --short ${GITHUB_SHA}`
-        COMMIT_COUNT=`git rev-list --count HEAD`
-        COMMIT_TIME=`git show -s --format=%ct HEAD`
-        TAG_LATEST="${BRANCH}-latest"
-        USERNAME=`git log -n 1 --pretty=format:%an`
-        EMAIL=`git log -n 1 --pretty=format:%ae`
-
         VERSION=`jq -r .version package.json`
         CORE_VERSION=`semver -c $VERSION`
-
-        TAG="${VERSION}-${BRANCH}.${COMMIT_TIME}"
-
-        if [ "$VERSION" != "$CORE_VERSION" ]; then
-          TAG="${VERSION}.${COMMIT_TIME}"
-        fi
-
-        if [ "$GITHUB_REF_NAME" = "main" ]; then
-          TAG="${VERSION}.${COMMIT_TIME}"
-          TAG_LATEST="latest"
-        fi
-
-        echo "app=$APP" >> $GITHUB_OUTPUT
         echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "image=$IMAGE" >> $GITHUB_OUTPUT
-        echo "image-fullName=$IMAGE_FULL_NAME" >> $GITHUB_OUTPUT
-        echo "tag=$TAG" >> $GITHUB_OUTPUT
-        echo "tag-hash=$COMMIT_SHORT_SHA" >> $GITHUB_OUTPUT
-        echo "tag-latest=$TAG_LATEST" >> $GITHUB_OUTPUT
-        echo "branch=$GITHUB_REF_NAME" >> $GITHUB_OUTPUT
-        echo "actor=$USERNAME" >> $GITHUB_OUTPUT
-        echo "email=$EMAIL" >> $GITHUB_OUTPUT
+    - name: Set Environments
+      id: envs
+      uses: netcorext/base-info-action@dev
+      with:
+        app: ${{ inputs.app }}
+        version: ${{ steps.pkg.outputs.version }}
+        image-prefix: ${{ inputs.image-prefix }}
