@@ -17,6 +17,9 @@ outputs:
   version:
     description: "App Version"
     value: ${{ steps.envs.outputs.version }}
+  packageManager:
+    description: "Package Manager"
+    value: ${{ steps.pkg.outputs.packageManager }}
   image:
     description: "Image Name"
     value: ${{ steps.envs.outputs.image }}
@@ -58,9 +61,13 @@ runs:
       id: pkg
       shell: bash
       run: |
-        VERSION=`jq -r .version package.json`
+        d=`jq -r '. | "VERSION=" + (.version?|tostring) + "\n" + "PACKAGE_MANAGER=" + (.packageManager?|tostring)' package.json`
+
+        eval $d
+
         CORE_VERSION=`semver -c $VERSION`
         echo "version=$VERSION" >> $GITHUB_OUTPUT
+        echo "packageManager=$PACKAGE_MANAGER" >> $GITHUB_OUTPUT
     - name: Set Environments
       id: envs
       uses: netcorext/base-info-action@dev
